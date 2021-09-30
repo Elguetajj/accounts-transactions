@@ -1,0 +1,11 @@
+{
+    "rpc_user":"123",
+    "rpc_password":"123",
+    "account_pool_endpoint":"http://localhost:80",
+    "node_name":"nodoTest",
+    "names":[
+        "pepe",
+        "juan",
+        "pedro"
+    ]
+}
