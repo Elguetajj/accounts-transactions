@@ -6,8 +6,10 @@ import random
 import argparse
 
 import requests 
-
 from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
+
+import logging
+
 
 with open('config.json','r') as conf:
     configs = json.loads(conf.read())
@@ -18,92 +20,108 @@ rpc_password = configs['rpc_user']
 account_pool_endpoint = configs['account_pool_endpoint']
 
 
-parser = argparse.ArgumentParser(description='Personal information')
+parser = argparse.ArgumentParser(description='configs')
 parser.add_argument('--speed', dest='speed', type=int, help='how many accounts per minute')
+parser.add_argument('--debug', dest='debug', default=0, type=bool, help='debug')
 
 node_name = configs['node_name']
 names = configs['names']
 
+
+
+
 # rpc_connection.getnewaddress(node_name)
 if __name__ == "__main__":
-    args = parser.parse_args()
-    while(True):
-        rpc_connection = AuthServiceProxy("http://%s:%s@127.0.0.1:18443"%(rpc_user, rpc_password))
-    
-        listunspent = []
-        while(not listunspent):
-            r = requests.get(f'{account_pool_endpoint}/account/{node_name}')
-            print("sender:",sender:=r.json()["address"])
-            listunspent = rpc_connection.listunspent(0,9999,[f"{sender}"])
+        args = parser.parse_args()
+        logging.basicConfig()
+        logger = logging.getLogger(__name__)
 
-            print("unspent:",listunspent)
-        
-        unspent = random.choice(listunspent)
-        while(unspent["amount"]<0.1):
-            unspent = random.choice(listunspent)
 
+        if args.debug:
+            logger.setLevel(logging.DEBUG)
+
+        while(True):
+            try:
+                rpc_connection = AuthServiceProxy("http://%s:%s@127.0.0.1:18443"%(rpc_user, rpc_password))
             
+                listunspent = []
+                while(not listunspent):
+                    r = requests.get(f'{account_pool_endpoint}/account/{node_name}')
+                    sender=r.json()["address"]
+                    logger.debug(f"sender: {str(sender)}")
+                    listunspent = rpc_connection.listunspent(0,9999,[f"{sender}"])
 
-        balance =  unspent['amount']
-        print("-------------")
-        print("unspent:",unspent)
-        print(unspent['spendable'])
-        if unspent['spendable']:
-            can_spend = 1
-            txid  = unspent['txid']
-            vout = 0
-            amount_to_spend = Decimal(random.uniform(0,float(balance)*0.5))
-            fee = Decimal(0.00001111)
-            change = balance-(amount_to_spend+fee)
+                    logger.debug(f"unspent:{listunspent}")
+                
+                unspent = random.choice(listunspent)
+                while(unspent["amount"]<0.1):
+                    unspent = random.choice(listunspent)
 
-        
-    
-        
-        # unspent = random.choice(listunspent)
-        # balance =  unspent['amount']
-        # print("balance:",balance)
-        # print("spendable?:",unspent['spendable'])
-        # if unspent['spendable']:
-        #     txid  = unspent['txid']
-        #     vout = 0
-        #     amount_to_spend = Decimal(random.uniform(0,float(balance)*0.5))
-        #     fee = balance*Decimal(0.05)
-        #     change = balance-amount_to_spend-fee
-        #     break
+                    
 
+                balance =  unspent['amount']
+                logger.debug(f"-------------")
+                logger.debug(f"unspent:{unspent}")
+                logger.debug(unspent['spendable'])
+                if unspent['spendable']:
+                    can_spend = 1
+                    txid  = unspent['txid']
+                    vout = 0
+                    amount_to_spend = Decimal(random.uniform(0,float(balance)*0.5))
+                    fee = Decimal(0.00001111)
+                    change = balance-(amount_to_spend+fee)
+
+                
             
-        reciever = requests.get(f'{account_pool_endpoint}/account/{node_name}').json()["address"]
+                
+                # unspent = random.choice(listunspent)
+                # balance =  unspent['amount']
+                # logger.debug("balance:",balance)
+                # logger.debug("spendable?:",unspent['spendable'])
+                # if unspent['spendable']:
+                #     txid  = unspent['txid']
+                #     vout = 0
+                #     amount_to_spend = Decimal(random.uniform(0,float(balance)*0.5))
+                #     fee = balance*Decimal(0.05)
+                #     change = balance-amount_to_spend-fee
+                #     break
 
-        print("amount_to_spend:",amount_to_spend)
-        print("change:",change)
-        print("fee:",fee)
+                    
+                reciever = requests.get(f'{account_pool_endpoint}/account').json()["address"]
 
-        rawtransaction =rpc_connection.createrawtransaction(
-            [{"txid":txid,"vout":0}],
-            {reciever:amount_to_spend,sender:change}
-        )
+                logger.debug(f"amount_to_spend:{amount_to_spend}")
+                logger.debug(f"change:{change}")
+                logger.debug(f"fee:{fee}")
 
-        print("rawtransaction:",rawtransaction)
+                rawtransaction =rpc_connection.createrawtransaction(
+                    [{"txid":txid,"vout":0}],
+                    {reciever:amount_to_spend,sender:change}
+                )
 
-        privkey = rpc_connection.dumpprivkey(
-            sender
-        )
-        print("key:",privkey)
+                logger.debug(f"rawtransaction:{rawtransaction}")
 
-        signed_transaction = rpc_connection.signrawtransactionwithkey(
-            rawtransaction,
-            [privkey]
-        )
-        print("signed transaction:",signed_transaction)
+                privkey = rpc_connection.dumpprivkey(
+                    sender
+                )
+                logger.debug(f"key:{privkey}")
 
-        hex = signed_transaction["hex"]
-        print("hex:",hex)
-        sent_rawtransaction = rpc_connection.sendrawtransaction(
-            hex
-        )
-        print("sent_transaction:",sent_rawtransaction)
+                signed_transaction = rpc_connection.signrawtransactionwithkey(
+                    rawtransaction,
+                    [privkey]
+                )
+                logger.debug(f"signed transaction:{signed_transaction}")
 
-        time.sleep(60/args.speed)
+                hex = signed_transaction["hex"]
+                logger.debug(f"hex:{hex}")
+                sent_rawtransaction = rpc_connection.sendrawtransaction(
+                    hex
+                )
+
+                logger.debug(f"sent_transaction:{sent_rawtransaction}")
+
+                time.sleep(60/args.speed)
+            except:
+                pass
 
     
 
